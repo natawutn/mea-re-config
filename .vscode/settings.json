@@ -1,0 +1,7 @@
+{
+    "yaml.schemaStore.url": "https://www.schemastore.org/api/json/catalog.json",
+    "yaml.schemaStore.enable": true,
+    "yaml.schemas": {
+        "mea-reforecast.json": "*.yml"
+    }
+}

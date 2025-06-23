@@ -1,0 +1,49 @@
+id: house_sample1
+title: บ้านทดสอบ MinIO
+description: บ้านทดสอบ MinIO
+address: 254 ถ.พญาไท แขวงปทุมวัน เขตปทุมวัน กรุงเทพฯ 10330
+image: house_sample1.jpg
+coordinates: [13.737180529362405, 100.53228334603335]
+map_url: https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d15502.800469628695!2d100.532155!3d13.736597!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x30e29ed508c2c0b7%3A0xdab79d194709cc72!2sChulalongkorn%20University!5e0!3m2!1sen!2sth!4v1707992875237!5m2!1sen!2sth
+tags: ['housing', 'rama-2']
+forecasts:
+  - id: 'intra_day_demand'
+    title: 'Intra-Day Demand Forecasting'
+    type: 'demand'
+    scheme: intra_day
+    interval: 15min
+    actual: { varname: 'actual_netload', adapter: 'h1_intra_day_netload.actual_netload', aggregator: 'sum' }
+    models:
+      - id: 'h1_intra_day_demand_lookback'
+        title: 'Lookback'
+        adapter:
+          type: 'ml_basic'
+          url: 'http://localhost:8000/demand/infer'
+          config:
+              target_site: 'cu_bems'
+              target_col: 'netload(kW)'
+              input_cols: 'netload(kW)'
+              model: 'lookback'
+          mappings:
+            - ['target_time', 'Datetime']
+            - ['forecasted', 'lookback']
+        input_range: [-96, 0]   # 24 hours (96 x 15-min datapoints), left inclusive
+        horizon: 96
+        input: 
+          - { varname: 'netload(kW)', adapter: 'h1_intra_day_netload.actual_netload', aggregator: 'sum' }
+        output: { varname: 'lookback', adapter: 'h1_intra_day_lookback_output_adapter.lookback', aggregator: 'sum' }
+adapters:
+  - id: 'h1_intra_day_netload'
+    type: 'csv'
+    config:
+      path: 'sample_data/house_sample1/house_sample1.csv'
+      timestamp: 'Datetime'
+    mappings:
+      - ['netload(kW)', 'actual_netload']
+  - id: 'h1_intra_day_lookback_output_adapter'
+    type: 'csv'
+    config:
+      path: 'sample_data/house_sample1/house_sample1_predictions.csv'
+      timestamp: 'Datetime'
+    mappings:
+      - ['lookback', 'lookback']

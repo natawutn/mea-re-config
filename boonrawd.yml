@@ -1,0 +1,151 @@
+id: boonrawd
+title: CUEE Building
+description: อาคารบุญรอด บิณฑสันต์ ที่จุฬาลงกรณ์มหาวิทยาลัย
+address: 254 ถ.พญาไท แขวงปทุมวัน เขตปทุมวัน กรุงเทพฯ 10330
+image: boonrawd.jpg
+coordinates: [13.737180529362405, 100.53228334603335]
+map_url: https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d15502.800469628695!2d100.532155!3d13.736597!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x30e29ed508c2c0b7%3A0xdab79d194709cc72!2sChulalongkorn%20University!5e0!3m2!1sen!2sth!4v1707992875237!5m2!1sen!2sth
+tags: ['building', 'patumwan', 'university']
+forecasts:
+  - id: 'dayahead_supply'
+    title: 'Day-ahead Supply Forecasting'
+    type: 'supply'
+    scheme: day_ahead
+    interval: 15min
+    actual: { varname: 'actual_P', adapter: 'br_day_actual_solarpower.actual_gen', aggregator: 'sum' }
+    models:
+      - id: 'supply_d_lstm'
+        title: 'LSTM'
+        adapter:
+          type: 'ml_basic_supply'
+          url: 'http://localhost:8003/supply/infer'
+          config:
+              target_site: 'eebuilding1'
+              horizon: 'dayahead'
+              model_name: 'lstm'
+          columns:
+            irradiance: Irradiance_3 (W/m2)
+            nwp_irradiance: NCEP Short-wave irradiance_9 (W/m2)
+            nwp_temperature: NCEP Ambient temperature_7 (C)
+            overview: Cloud Index_95 (-)
+            cloudmask: Cloud Index_95 (-)
+          mappings:
+            - ['forecasted_I', 'dayahead_LSTM_I']
+            - ['forecasted_P', 'dayahead_LSTM_P']
+        input_range: [-96, 288]   # [-1 day, +3 days] left inclusive
+        horizon: 96
+        input: 
+          - { varname: 'irradiance', adapter: 'br_day_raw_irradiance.irradiance', aggregator: 'raw' }
+          - { varname: 'nwp_irradiance', adapter: 'br_day_raw_nwp_irradiance.nwp_irradiance', aggregator: 'raw' }
+          - { varname: 'nwp_temperature', adapter: 'br_day_raw_nwp_temperature.nwp_temperature', aggregator: 'raw' }
+          - { varname: 'overview', adapter: 'br_day_raw_overview.overview', aggregator: 'raw' }
+          - { varname: 'cloudmask', adapter: 'br_day_raw_cloudmask.cloudmask', aggregator: 'raw' }
+        intermediate:
+          - from_model: { varname: 'dayahead_LSTM_I', adapter: 'br_day_lstm_adapter.dayahead_LSTM_I', output_adapter: 'br_day_lstm_output_adapter.dayahead_LSTM_I' }
+            actual: { varname: 'actual_I', adapter: 'br_day_raw_irradiance.irradiance', aggregator: 'sum' }
+        output: { varname: 'dayahead_LSTM_P', adapter: 'br_day_lstm_adapter.dayahead_LSTM_P', aggregator: 'mean', output_adapter: 'br_day_lstm_output_adapter.dayahead_LSTM_P'  }
+      - id: 'supply_d_np'
+        title: 'NeuralProphet'
+        adapter:
+          type: 'ml_basic_supply'
+          url: 'http://localhost:8003/supply/infer'
+          config:
+              target_site: 'eebuilding1'
+              horizon: 'dayahead'
+              model_name: 'neuralprophet'
+          columns:
+            irradiance: Irradiance_3 (W/m2)
+            nwp_irradiance: NCEP Short-wave irradiance_9 (W/m2)
+            nwp_temperature: NCEP Ambient temperature_7 (C)
+            overview: Cloud Index_95 (-)
+            cloudmask: Cloud Index_95 (-)
+          mappings:
+            - ['forecasted_I', 'dayahead_NP_I']
+            - ['forecasted_P', 'dayahead_NP_P']
+        input_range: [-96, 0]   # 24 hours, left inclusive
+        horizon: 96
+        input: 
+          - { varname: 'irradiance', adapter: 'br_day_raw_irradiance.irradiance', aggregator: 'raw' }
+          - { varname: 'nwp_irradiance', adapter: 'br_day_raw_nwp_irradiance.nwp_irradiance', aggregator: 'raw' }
+          - { varname: 'nwp_temperature', adapter: 'br_day_raw_nwp_temperature.nwp_temperature', aggregator: 'raw' }
+          - { varname: 'overview', adapter: 'br_day_raw_overview.overview', aggregator: 'raw' }
+          - { varname: 'cloudmask', adapter: 'br_day_raw_cloudmask.cloudmask', aggregator: 'raw' }
+        intermediate:
+          - from_model: { varname: 'dayahead_NP_I', adapter: 'br_day_np_adapter.dayahead_NP_I', output_adapter: 'br_day_np_output_adapter.dayahead_NP_I' }
+            actual: { varname: 'actual_I', adapter: 'br_day_raw_irradiance.irradiance', aggregator: 'sum' }
+        output: { varname: 'dayahead_NP_P', adapter: 'br_day_np_adapter.dayahead_NP_P', aggregator: 'mean', output_adapter: 'br_day_np_output_adapter.dayahead_NP_P'  }
+adapters:
+  - id: 'br_day_actual_solarpower'
+    type: 'csv'
+    config:
+      path: 'sample_data/boonrawd/supply/eebuilding1_raw_solarpower.csv'
+      timestamp: 'Datetime'
+    mappings:
+      - ['Generated power_1 (kW)', 'actual_gen']
+  - id: br_day_raw_irradiance
+    type: csv
+    config:
+      path: 'sample_data/boonrawd/supply/eebuilding1_raw_irradiance.csv'
+      timestamp: 'Datetime'
+    mappings:
+      - ['Irradiance_3 (W/m2)', 'irradiance']      
+  - id: br_day_raw_nwp_irradiance
+    type: csv
+    config:
+      path: 'sample_data/boonrawd/supply/eebuilding1_raw_nwp_irradiance.csv'
+      timestamp: 'Datetime'
+    mappings:
+      - ['NCEP Short-wave irradiance_9 (W/m2)', 'nwp_irradiance']      
+  - id: br_day_raw_nwp_temperature
+    type: csv
+    config:
+      path: 'sample_data/boonrawd/supply/eebuilding1_raw_nwp_temperature.csv'
+      timestamp: 'Datetime'
+    mappings:
+      - ['NCEP Ambient temperature_7 (C)', 'nwp_temperature']      
+  - id: br_day_raw_overview
+    type: csv
+    config:
+      path: 'sample_data/boonrawd/supply/eebuilding1_raw_overview.csv'
+      timestamp: 'Datetime'
+    mappings:
+      - ['Cloud Index_95 (-)', 'overview']      
+  - id: br_day_raw_cloudmask
+    type: csv
+    config:
+      path: 'sample_data/boonrawd/supply/eebuilding1_raw_cloudmask.csv'
+      timestamp: 'Datetime'
+    mappings:
+      - ['Cloud Index_95 (-)', 'cloudmask']      
+  - id: 'br_day_lstm_adapter'
+    type: 'csv'
+    config:
+      path: 'sample_data/boonrawd/dayahead/inferred_output/forecasted_eebuilding1_dayahead_lstm_202408100000.csv'
+      timestamp: 'Datetime'
+    mappings:
+      - ['forecasted_P', 'dayahead_LSTM_P']
+      - ['forecasted_I', 'dayahead_LSTM_I']
+  - id: 'br_day_np_adapter'
+    type: 'csv'
+    config:
+      path: 'sample_data/boonrawd/dayahead/inferred_output/forecasted_eebuilding1_dayahead_neuralprophet_202408100000.csv'
+      timestamp: 'target_time'
+    mappings:
+      - ['forecasted_P', 'dayahead_NP_P']
+      - ['forecasted_I', 'dayahead_NP_I']
+  - id: 'br_day_lstm_output_adapter'
+    type: 'csv'
+    config:
+      path: 'sample_data/boonrawd/dayahead/inferred_output/forecasted_eebuilding1_dayahead_lstm_202408100000.csv'
+      timestamp: 'Datetime'
+    mappings:
+      - ['forecasted_P', 'dayahead_LSTM_P']
+      - ['forecasted_I', 'dayahead_LSTM_I']
+  - id: 'br_day_np_output_adapter'
+    type: 'csv'
+    config:
+      path: 'sample_data/boonrawd/dayahead/inferred_output/forecasted_eebuilding1_dayahead_neuralprophet_202408100000.csv'
+      timestamp: 'target_time'
+    mappings:
+      - ['forecasted_P', 'dayahead_NP_P']
+      - ['forecasted_I', 'dayahead_NP_I']

@@ -1,0 +1,144 @@
+{ 
+    "$schema": "https://json-schema.org/draft/2020-12/schema" ,
+    "title": "MEA Reforecast",
+    "description": "Configuration for the MEA Reforecast site",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "description": "ID of the MEA Reforecast site"
+        },
+        "title": {
+            "type": "string",
+            "description": "Name of the MEA Reforecast site"
+        },
+        "description": {
+            "type": "string",
+            "description": "Description of the MEA Reforecast site"
+        },
+        "address": {
+            "type": "string",
+            "description": "Address of the MEA Reforecast site"
+        },
+        "image": {
+            "type": "string",
+            "description": "Image of the site"
+        },
+        "coordinates": {
+            "type": "array",
+            "items": {
+                "type": "number"
+            },
+            "description": "Coordinate of the site in [longitude, latitude] format"
+        },
+        "map_url": {
+            "type": "string",
+            "description": "Link to map of the site"
+        },
+        "tags": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Tags of the site"
+        },
+        "forecasts": {
+            "type": "array",
+            "description": "List of the forecasts available for the site",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string"},
+                    "title": { "type": "string"},
+                    "type": { "enum": ["supply", "demand"]},
+                    "scheme": { "enum": ["day_ahead", "intra_day"]},
+                    "interval": { "enum": ["1min", "15min", "1h", "1d"]},
+                    "actual": { 
+                        "type": "object",
+                        "properties": {
+                            "varname": { "type": "string"},
+                            "adapter": { "type": "string"},
+                            "output_adapter": { "type": "string", "optional": true },
+                            "aggregator": { "enum": ["mean", "sum", "count", "min", "max", "last", "nearest", "raw"], "optional": true}
+                        }
+                    },
+                    "models": {
+                        "type": "array",
+                        "description": "Forecast models for the site",
+                        "items": {
+                            "type": "object",
+                            "description": "Forecast model configuration",
+                            "properties": {
+                                "id": { "type": "string" },
+                                "title": { "type": "string" },
+                                "adapter": { 
+                                    "type": "object", 
+                                    "properties": {
+                                        "type": { "type": "string" },
+                                        "url": { "type": "string" },
+                                        "config": { "type": "object" },
+                                        "columns": { "type": "object" },
+                                        "mappings": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } }
+                                    },
+                                    "required": ["type", "url", "config"]
+                                },
+                                "input_range": {
+                                    "type": "array",
+                                    "items": { "type": "number"}
+                                }, 
+                                "horizon": { "type": "number"},
+                                "input": { 
+                                    "type": "array",
+                                    "items": { 
+                                        "type": "object",
+                                        "properties": {
+                                            "varname": { "type": "string"},
+                                            "adapter": { "type": "string"},
+                                            "output_adapter": { "type": "string", "optional": true },
+                                            "aggregator": { "enum": ["mean", "sum", "count", "min", "max", "last", "nearest", "raw"], "optional": true}
+                                        }
+                                    }
+                                },
+                                "intermediate": { 
+                                    "type": "array",
+                                    "items": { 
+                                        "type": "object",
+                                        "properties": {
+                                            "from_model": { 
+                                                "type": "object",
+                                                "properties": {
+                                                    "varname": { "type": "string"},
+                                                    "adapter": { "type": "string"},
+                                                    "output_adapter": { "type": "string", "optional": true },
+                                                    "aggregator": { "enum": ["mean", "sum", "count", "min", "max", "last", "nearest", "raw"], "optional": true}
+                                                }
+                                            },
+                                            "actual": { 
+                                                "type": "object",
+                                                "properties": {
+                                                    "varname": { "type": "string"},
+                                                    "adapter": { "type": "string"},
+                                                    "output_adapter": { "type": "string", "optional": true },
+                                                    "aggregator": { "enum": ["mean", "sum", "count", "min", "max", "last", "nearest", "raw"], "optional": true}
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "output": { 
+                                    "type": "object",
+                                    "properties": {
+                                        "varname": { "type": "string"},
+                                        "adapter": { "type": "string"},
+                                        "output_adapter": { "type": "string", "optional": true },
+                                        "aggregator": { "enum": ["mean", "sum", "count", "min", "max", "last", "nearest", "raw"], "optional": true}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
