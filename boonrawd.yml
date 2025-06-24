@@ -12,13 +12,13 @@ forecasts:
     type: 'supply'
     scheme: day_ahead
     interval: 15min
-    actual: { varname: 'actual_P', adapter: 'br_day_actual_solarpower.actual_gen', aggregator: 'sum' }
+    actual: { varname: 'actual_P', adapter: 'br_day_actual_solarpower.actual_gen', aggregator: 'mean' }
     models:
       - id: 'supply_d_lstm'
         title: 'LSTM'
         adapter:
           type: 'ml_basic_supply'
-          url: 'http://localhost:8003/supply/infer'
+          url: 'http://supply1:8001/supply/infer'
           config:
               target_site: 'eebuilding1'
               horizon: 'dayahead'
@@ -32,23 +32,23 @@ forecasts:
           mappings:
             - ['forecasted_I', 'dayahead_LSTM_I']
             - ['forecasted_P', 'dayahead_LSTM_P']
-        input_range: [-96, 288]   # [-1 day, +3 days] left inclusive
+        input_range: [-384, 480]   # 24 hours, left inclusive
         horizon: 96
         input: 
-          - { varname: 'irradiance', adapter: 'br_day_raw_irradiance.irradiance', aggregator: 'raw' }
+          - { varname: 'irradiance', adapter: 'br_day_raw_irradiance.irradiance', aggregator: 'mean' }
           - { varname: 'nwp_irradiance', adapter: 'br_day_raw_nwp_irradiance.nwp_irradiance', aggregator: 'raw' }
           - { varname: 'nwp_temperature', adapter: 'br_day_raw_nwp_temperature.nwp_temperature', aggregator: 'raw' }
           - { varname: 'overview', adapter: 'br_day_raw_overview.overview', aggregator: 'raw' }
           - { varname: 'cloudmask', adapter: 'br_day_raw_cloudmask.cloudmask', aggregator: 'raw' }
         intermediate:
-          - from_model: { varname: 'dayahead_LSTM_I', adapter: 'br_day_lstm_adapter.dayahead_LSTM_I', output_adapter: 'br_day_lstm_output_adapter.dayahead_LSTM_I' }
-            actual: { varname: 'actual_I', adapter: 'br_day_raw_irradiance.irradiance', aggregator: 'sum' }
-        output: { varname: 'dayahead_LSTM_P', adapter: 'br_day_lstm_adapter.dayahead_LSTM_P', aggregator: 'mean', output_adapter: 'br_day_lstm_output_adapter.dayahead_LSTM_P'  }
+          - from_model: { varname: 'dayahead_LSTM_I', adapter: 'br_day_lstm_adapter_I.dayahead_LSTM_I', output_adapter: 'br_day_lstm_adapter_I.dayahead_LSTM_I' }
+            actual: { varname: 'actual_I', adapter: 'br_day_raw_irradiance.irradiance', aggregator: 'mean' }
+        output: { varname: 'dayahead_LSTM_P', adapter: 'br_day_lstm_adapter_P.dayahead_LSTM_P', aggregator: 'mean', output_adapter: 'br_day_lstm_adapter_P.dayahead_LSTM_P'  }
       - id: 'supply_d_np'
         title: 'NeuralProphet'
         adapter:
           type: 'ml_basic_supply'
-          url: 'http://localhost:8003/supply/infer'
+          url: 'http://supply1:8001/supply/infer'
           config:
               target_site: 'eebuilding1'
               horizon: 'dayahead'
@@ -62,7 +62,7 @@ forecasts:
           mappings:
             - ['forecasted_I', 'dayahead_NP_I']
             - ['forecasted_P', 'dayahead_NP_P']
-        input_range: [-96, 0]   # 24 hours, left inclusive
+        input_range: [-384, 480]    # 24 hours, left inclusive
         horizon: 96
         input: 
           - { varname: 'irradiance', adapter: 'br_day_raw_irradiance.irradiance', aggregator: 'raw' }
@@ -71,38 +71,58 @@ forecasts:
           - { varname: 'overview', adapter: 'br_day_raw_overview.overview', aggregator: 'raw' }
           - { varname: 'cloudmask', adapter: 'br_day_raw_cloudmask.cloudmask', aggregator: 'raw' }
         intermediate:
-          - from_model: { varname: 'dayahead_NP_I', adapter: 'br_day_np_adapter.dayahead_NP_I', output_adapter: 'br_day_np_output_adapter.dayahead_NP_I' }
-            actual: { varname: 'actual_I', adapter: 'br_day_raw_irradiance.irradiance', aggregator: 'sum' }
-        output: { varname: 'dayahead_NP_P', adapter: 'br_day_np_adapter.dayahead_NP_P', aggregator: 'mean', output_adapter: 'br_day_np_output_adapter.dayahead_NP_P'  }
+          - from_model: { varname: 'dayahead_NP_I', adapter: 'br_day_np_adapter_I.dayahead_NP_I', output_adapter: 'br_day_np_output_adapter_I.dayahead_NP_I' }
+            actual: { varname: 'actual_I', adapter: 'br_day_raw_irradiance.irradiance', aggregator: 'mean' }
+        output: { varname: 'dayahead_NP_P', adapter: 'br_day_np_adapter_P.dayahead_NP_P', aggregator: 'mean', output_adapter: 'br_day_np_output_adapter_P.dayahead_NP_P'  }
 adapters:
-  - id: 'br_day_actual_solarpower'
-    type: 'csv'
+  - id: br_day_actual_solarpower
+    type: 'MINIO'
     config:
-      path: 'sample_data/boonrawd/supply/eebuilding1_raw_solarpower.csv'
+      url: '172.17.113.251:9000'
+      bucket_name: 're-forecast'
+      username: 'cu_reforecast2'
+      password: 'Ref0rec@st'
       timestamp: 'Datetime'
+      site_name: 'eebuilding1'
+      feature: 'solarpower'
     mappings:
-      - ['Generated power_1 (kW)', 'actual_gen']
+      - ['Generated power_1 (kW)', 'actual_gen'] 
   - id: br_day_raw_irradiance
-    type: csv
+    type: 'MINIO'
     config:
-      path: 'sample_data/boonrawd/supply/eebuilding1_raw_irradiance.csv'
+      url: '172.17.113.251:9000'
+      bucket_name: 're-forecast'
+      username: 'cu_reforecast2'
+      password: 'Ref0rec@st'
       timestamp: 'Datetime'
+      site_name: 'eebuilding1'
+      feature: 'irradiance'
     mappings:
-      - ['Irradiance_3 (W/m2)', 'irradiance']      
+      - ['Irradiance_3 (W/m2)', 'irradiance']     
   - id: br_day_raw_nwp_irradiance
-    type: csv
+    type: 'MINIO'
     config:
-      path: 'sample_data/boonrawd/supply/eebuilding1_raw_nwp_irradiance.csv'
+      url: '172.17.113.251:9000'
+      bucket_name: 're-forecast'
+      username: 'cu_reforecast2'
+      password: 'Ref0rec@st'
       timestamp: 'Datetime'
+      site_name: 'eebuilding1'
+      feature: 'nwp_irradiance'
     mappings:
-      - ['NCEP Short-wave irradiance_9 (W/m2)', 'nwp_irradiance']      
+      - ['Short-wave irradiation', 'nwp_irradiance']   
   - id: br_day_raw_nwp_temperature
-    type: csv
+    type: 'MINIO'
     config:
-      path: 'sample_data/boonrawd/supply/eebuilding1_raw_nwp_temperature.csv'
+      url: '172.17.113.251:9000'
+      bucket_name: 're-forecast'
+      username: 'cu_reforecast2'
+      password: 'Ref0rec@st'
       timestamp: 'Datetime'
+      site_name: 'eebuilding1'
+      feature: 'nwp_temperature'
     mappings:
-      - ['NCEP Ambient temperature_7 (C)', 'nwp_temperature']      
+      - ['Temperature', 'nwp_temperature']   
   - id: br_day_raw_overview
     type: csv
     config:
@@ -117,35 +137,60 @@ adapters:
       timestamp: 'Datetime'
     mappings:
       - ['Cloud Index_95 (-)', 'cloudmask']      
-  - id: 'br_day_lstm_adapter'
+  - id: 'br_day_lstm_adapter_I'
     type: 'csv'
     config:
-      path: 'sample_data/boonrawd/dayahead/inferred_output/forecasted_eebuilding1_dayahead_lstm_202408100000.csv'
+      path: 'sample_data/boonrawd/dayahead/inferred_output/boonrawd_prediction_I.csv'
+      timestamp: 'Datetime'
+    mappings:
+      - ['forecasted_I', 'dayahead_LSTM_I']
+  - id: 'br_day_lstm_adapter_P'
+    type: 'csv'
+    config:
+      path: 'sample_data/boonrawd/dayahead/inferred_output/boonrawd_prediction_P.csv'
       timestamp: 'Datetime'
     mappings:
       - ['forecasted_P', 'dayahead_LSTM_P']
-      - ['forecasted_I', 'dayahead_LSTM_I']
-  - id: 'br_day_np_adapter'
+  - id: 'br_day_lstm_output_adapter_I'
     type: 'csv'
     config:
-      path: 'sample_data/boonrawd/dayahead/inferred_output/forecasted_eebuilding1_dayahead_neuralprophet_202408100000.csv'
-      timestamp: 'target_time'
+      path: 'sample_data/boonrawd/dayahead/inferred_output/boonrawd_prediction_I.csv'
+      timestamp: 'Datetime'
     mappings:
-      - ['forecasted_P', 'dayahead_NP_P']
-      - ['forecasted_I', 'dayahead_NP_I']
-  - id: 'br_day_lstm_output_adapter'
+      - ['forecasted_I', 'dayahead_LSTM_I']
+  - id: 'br_day_lstm_output_adapter_P'
     type: 'csv'
     config:
-      path: 'sample_data/boonrawd/dayahead/inferred_output/forecasted_eebuilding1_dayahead_lstm_202408100000.csv'
+      path: 'sample_data/boonrawd/dayahead/inferred_output/boonrawd_prediction_P.csv'
       timestamp: 'Datetime'
     mappings:
       - ['forecasted_P', 'dayahead_LSTM_P']
-      - ['forecasted_I', 'dayahead_LSTM_I']
-  - id: 'br_day_np_output_adapter'
+  - id: 'br_day_np_adapter_P'
     type: 'csv'
     config:
-      path: 'sample_data/boonrawd/dayahead/inferred_output/forecasted_eebuilding1_dayahead_neuralprophet_202408100000.csv'
-      timestamp: 'target_time'
+      path: 'sample_data/boonrawd/dayahead/inferred_output/boonrawd_prediction_P_np.csv'
+      timestamp: 'Datetime'
     mappings:
-      - ['forecasted_P', 'dayahead_NP_P']
-      - ['forecasted_I', 'dayahead_NP_I']
+      - ['dayahead_NP_P', 'dayahead_NP_P']
+  - id: 'br_day_np_output_adapter_P'
+    type: 'csv'
+    config:
+      path: 'sample_data/boonrawd/dayahead/inferred_output/boonrawd_prediction_P_np.csv'
+      timestamp: 'Datetime'
+    mappings:
+      - ['dayahead_NP_P', 'dayahead_NP_P']
+  - id: 'br_day_np_adapter_I'
+    type: 'csv'
+    config:
+      path: 'sample_data/boonrawd/dayahead/inferred_output/boonrawd_prediction_I_np.csv'
+      timestamp: 'Datetime'
+    mappings:
+      - ['dayahead_NP_I', 'dayahead_NP_I']
+  - id: 'br_day_np_output_adapter_I'
+    type: 'csv'
+    config:
+      path: 'sample_data/boonrawd/dayahead/inferred_output/boonrawd_prediction_I_np.csv'
+      timestamp: 'Datetime'
+    mappings:
+      - ['dayahead_NP_I', 'dayahead_NP_I']
+

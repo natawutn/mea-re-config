@@ -35,7 +35,6 @@ forecasts:
 adapters:
   - id: 'h3_intra_day_netload'
     type: 'METERAPI'
-    profile: 'mea_meter'
     config:
       url: 'https://data-api.mea.or.th/amr/lp'
       username: 'cu_dev'
